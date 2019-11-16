@@ -1,0 +1,26 @@
+{
+    "collab_server" : "",
+    "contents" : "",
+    "created" : 1573837008645.000,
+    "dirty" : false,
+    "encoding" : "UTF-8",
+    "folds" : "",
+    "hash" : "0",
+    "id" : "F9C6645B",
+    "lastKnownWriteTime" : 1573840026,
+    "last_content_update" : 1573840026101,
+    "path" : "~/Desktop/Semestre 2/proyectoIntegrador2/Demo/funciones.R",
+    "project_path" : "funciones.R",
+    "properties" : {
+        "cursorPosition" : "43,30",
+        "scrollLine" : "120",
+        "tempName" : "Untitled1"
+    },
+    "read_only" : false,
+    "read_only_alternatives" : [
+    ],
+    "relative_order" : 1,
+    "source_on_save" : false,
+    "source_window" : "",
+    "type" : "r_source"
+}

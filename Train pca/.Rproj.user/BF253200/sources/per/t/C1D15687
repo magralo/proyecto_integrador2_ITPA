@@ -1,0 +1,25 @@
+{
+    "collab_server" : "",
+    "contents" : "",
+    "created" : 1573881110534.000,
+    "dirty" : false,
+    "encoding" : "UTF-8",
+    "folds" : "",
+    "hash" : "2886049656",
+    "id" : "C1D15687",
+    "lastKnownWriteTime" : 1573881000,
+    "last_content_update" : 1573881000,
+    "path" : "~/Desktop/untitled folder/Train pca/train.R",
+    "project_path" : "train.R",
+    "properties" : {
+        "cursorPosition" : "51,0",
+        "scrollLine" : "34"
+    },
+    "read_only" : false,
+    "read_only_alternatives" : [
+    ],
+    "relative_order" : 1,
+    "source_on_save" : false,
+    "source_window" : "",
+    "type" : "r_source"
+}

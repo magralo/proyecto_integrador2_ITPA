@@ -1,0 +1,25 @@
+{
+    "collab_server" : "",
+    "contents" : "",
+    "created" : 1573881157509.000,
+    "dirty" : false,
+    "encoding" : "UTF-8",
+    "folds" : "",
+    "hash" : "3387803185",
+    "id" : "10B66887",
+    "lastKnownWriteTime" : 1573881445,
+    "last_content_update" : 1573881445452,
+    "path" : "~/Desktop/untitled folder/Train variable selection/train.R",
+    "project_path" : "train.R",
+    "properties" : {
+        "cursorPosition" : "41,0",
+        "scrollLine" : "34"
+    },
+    "read_only" : false,
+    "read_only_alternatives" : [
+    ],
+    "relative_order" : 1,
+    "source_on_save" : false,
+    "source_window" : "",
+    "type" : "r_source"
+}

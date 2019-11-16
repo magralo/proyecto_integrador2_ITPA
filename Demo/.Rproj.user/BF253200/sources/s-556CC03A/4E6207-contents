@@ -1,0 +1,156 @@
+library(tidyverse)
+library(TTR)
+library(janitor)
+library(plotly)
+library(caret)
+library(lubridate)
+library(Rtsne)
+library(pROC)
+
+
+if(stringi::stri_detect(getwd(),fixed='Cluster')){
+  setwd('..')
+}
+
+source('fun_notebook_af.R')
+
+
+raw=read.csv('../all_info.csv',stringsAsFactors = FALSE)%>%
+  clean_names()%>%
+  mutate(date=as.Date(date))%>%
+  rename(tri=tot_return_index_net_dvds)
+
+
+
+
+
+
+get_total=function(fol){
+      if(stringi::stri_detect(getwd(),fixed='Cluster')){
+        setwd(paste0('../',fol))
+      }else{
+        setwd(fol)
+      }
+      
+      met='regLogistic'
+      
+      plots=show_results(readRDS("glm_stat.rds"))
+      
+      info=plots$data%>%
+        select(date,ret_stat,ret_ew)
+      
+      colnames(info)[2]=met
+      
+      
+      met='rf'
+      
+      plots=show_results(readRDS("rf_stat.rds"))
+      
+      info_model=plots$data%>%
+        select(date,ret_stat)
+      
+      colnames(info_model)[2]=met
+      
+      info=info%>%
+        left_join(info_model,by='date')
+      
+      
+      
+      met='svmRadial'
+      
+      plots=show_results(readRDS("svm_stat.rds"))
+      
+      info_model=plots$data%>%
+        select(date,ret_stat)
+      
+      colnames(info_model)[2]=met
+      
+      aux=info%>%
+        left_join(info_model,by='date')%>%
+        rename(naive=ret_ew)%>%
+        select(date,naive,regLogistic,svmRadial,rf)
+      
+      
+      final_info=aux
+      
+      
+      ys=year(max(final_info$date))-year(min(final_info$date))
+      total=final_info%>%
+        gather(estrategia,retorno,-date)%>%
+        group_by(estrategia)%>%
+        summarise(retorno_anual=(prod(1+retorno))^(1/ys)-1,
+                  volatilidad=sd(retorno)*sqrt(52),
+                  retorno_riesgo=retorno_anual/volatilidad)%>%
+        ungroup()%>%
+        gather(metrica,valor,-estrategia)%>%
+        mutate(estrategia=factor(estrategia,levels = c('naive','regLogistic','python','python_NS','svmRadial','rf')))%>%
+        mutate(date='total')
+      
+      return(list(resumen=total,det=aux))
+}
+
+
+years=as.list(2015:2019)
+
+resultados=mutate(get_total('Cluster 1')$resumen,cluster='Cluster 1')%>%
+  rbind(  mutate(get_total('Cluster 2')$resumen,cluster='Cluster 2') )%>%
+  rbind(  mutate(get_total('Cluster 3')$resumen,cluster='Cluster 3') )%>%
+  rbind(  mutate(get_total('Cluster 4')$resumen,cluster='Cluster 4') )%>%
+  rbind(  mutate(get_total('Cluster 5')$resumen,cluster='Cluster 5') )%>%
+  rbind(  mutate(get_total('Cluster_all_from_1')$resumen,cluster='All') )
+
+
+A=mutate(get_total('Cluster 1')$det,cluster='Cluster 1')%>%
+  rbind(  mutate(get_total('Cluster 2')$det,cluster='Cluster 2') )%>%
+  rbind(  mutate(get_total('Cluster 3')$det,cluster='Cluster 3') )%>%
+  rbind(  mutate(get_total('Cluster 4')$det,cluster='Cluster 4') )%>%
+  rbind(  mutate(get_total('Cluster 5')$det,cluster='Cluster 5') )%>%
+  rbind(  mutate(get_total('Cluster_all_from_1')$det,cluster='All') )
+
+A%>%
+  write.csv('detalles_pca.csv')
+
+resultados%>%
+  filter(metrica=='retorno_anual')%>%
+  ggplot(aes(estrategia,valor,
+             fill=estrategia,
+             label=paste(round(valor*100,2),'%')))+
+  geom_col(position=position_dodge2())+
+  geom_text(position=position_dodge(.9), vjust=0.9)+
+  xlab('')+
+  facet_wrap(~cluster,ncol=1,scales = 'free')+
+  labs(title = 'Cómo nos va en cada cluster?',
+       subtitle = 'Retorno')
+
+resultados%>%
+  filter(metrica=='retorno_riesgo')%>%
+  ggplot(aes(estrategia,valor,
+             fill=estrategia,
+              label=round(valor,2)))+
+  geom_col(position=position_dodge2())+
+  geom_text(position=position_dodge(.9), vjust=0.9)+
+  xlab('')+
+  facet_wrap(~cluster,ncol=1,scales = 'free')+
+  labs(title = 'Cómo nos va en cada cluster?',
+       subtitle = 'Retorno/riesgo')
+
+
+  
+
+resultados%>%
+  filter(metrica%in%c( 'retorno_anual','retorno_riesgo'))%>%
+  select(estrategia,metrica,valor,cluster)%>%
+  spread(key=estrategia,value=valor)%>%
+  gather(estrategia,valor,-metrica,-cluster,-naive)%>%
+  mutate(win=valor>naive)%>%
+  group_by(metrica,estrategia)%>%
+  summarise(wins=sum(win),lab=paste0(wins,'/',length(win)))%>%
+  ungroup()%>%
+  ggplot(aes(estrategia,wins,fill=estrategia,label=lab))+
+  geom_col(position=position_dodge2())+
+  geom_text(position=position_dodge(.9), vjust=0.9)+
+  facet_wrap(~metrica,ncol=1,scales = 'free')+
+  labs(title = 'En cuentos clusters lo hacemos mejor',
+       subtitle = 'Parece que el SVM tiene un ligera ventaja')
+  
+

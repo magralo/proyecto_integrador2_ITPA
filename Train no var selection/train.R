@@ -1,0 +1,51 @@
+library(tidyverse)
+library(TTR)
+library(janitor)
+library(plotly)
+library(caret)
+library(lubridate)
+library(Rtsne)
+library(pROC)
+
+source('fun_notebook_af.r')
+
+raw=read.csv('../all_info.csv',stringsAsFactors = FALSE)%>%
+  clean_names()%>%
+  mutate(date=as.Date(date))%>%
+  rename(tri=tot_return_index_net_dvds)
+
+
+etfs=c(
+  'MCHI US Equity', #china
+  'EWH US Equity', #hong kong
+  'EWY US Equity' #korea
+) ### Select cluster
+
+
+k=5
+
+all_pairs=data.frame(combn(unique(etfs),2),stringsAsFactors = FALSE)
+
+all_pairs=lapply(all_pairs, c)
+
+all_tecs=lapply(all_pairs,get_tec,raw=raw,k=k)
+
+pair_tecnical=do.call(rbind,all_tecs)
+
+
+met='regLogistic' #select method
+# random forest : rf
+# logistic: regLogistic
+# SVM: svmRadial
+years=as.list(2018:2019)
+
+strategy_and_model=lapply(years,
+                            get_year_model_and_pred,
+                            pair_tecnical=pair_tecnical,
+                            yot=5,
+                            met=met)
+
+
+plots=show_results(strategy_and_model)
+plots$gtime
+plots$gbar

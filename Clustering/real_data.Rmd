@@ -1,0 +1,297 @@
+---
+title: "Real_data"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+
+library(tidyverse)
+library(e1071)
+
+
+### Real
+
+data=read.csv('all_info.csv')%>%
+  select(etf,date,TOT_RETURN_INDEX_NET_DVDS)%>%
+  rename(index=TOT_RETURN_INDEX_NET_DVDS)%>%
+  spread(key=etf,value = index)
+
+#drop_na
+fun_na=function(vec){
+  return( sum (is.na(vec)))
+}
+any_na=apply(data,1,fun_na)
+
+fun_ret=function(vec){
+  ret=vec[-1]/vec[-length(vec)]-1
+  return( c(NA,ret))
+}
+
+data_red=data[any_na==0,]%>%
+  gather(etf,index,-date)%>%
+  group_by(etf)%>%
+  arrange(date)%>%
+  mutate(ret=fun_ret(index))%>%
+  ungroup()%>%
+  filter(!is.na(ret))%>%
+  select(date,etf,ret)%>%
+  spread(key=etf,value = ret)%>%
+  select(-date)
+
+
+
+library(tidyverse)
+library(e1071)
+data=t(data_red)
+X=data
+
+info <- read.csv("info.csv",stringsAsFactors = FALSE)
+
+info=info%>%
+  group_by(Ticker)%>%
+  do(head(.,1))%>%
+  ungroup()%>%
+  mutate(Zona=ifelse(Zona=='Eurozona','Europa',Zona))
+
+put_name=data.frame(x=rownames(X))%>%
+  left_join(info,by=c('x'='Ticker'))
+
+rownames(X)=put_name$Name
+
+```
+
+## Metodologia:
+
+  - Elegimos K: Probamos con diferentes radios usando substrative.
+  - Para los k opcionados probamos k-means, c-means y spectral clustering para ver la consistencia de los clusters, queremos ver qué elementos quedan en el mismo cluster en al menos 2 de los 3 algoritmos.
+
+
+## Defining K
+
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+source('substractive.r')
+nc=NULL
+hs=seq(0.1,3,by=0.1)
+for (h in hs){
+  aux=subtra(X, h)
+  nc=c(nc,length(unique(aux$cluster)))
+}
+
+data.frame(n_clusters=nc,h=hs)%>%
+  ggplot(aes(h,n_clusters))+geom_point()
+
+```
+
+## K=3
+
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+grupo=data.frame()
+## Kmeans
+k=3
+kmo=kmeans(X,k)
+grupo=data.frame(kmeans=kmo$cluster)
+
+## c means
+
+cmo=cmeans(X, k)
+grupo=grupo%>%
+  mutate(cmeans=cmo$cluster)
+
+
+##Spectral
+
+
+
+ssp=kernlab::specc(X, k)
+grupo=grupo%>%
+  mutate(spectral=ssp@.Data)
+
+
+MA=diag(nrow(grupo))*0
+for (g in 1:ncol(grupo)){
+  for (i in 1:nrow(MA)){
+    cuales=grupo[,g]==grupo[i,g]
+    MA[i,cuales]=MA[i,cuales]+1
+  }
+}
+
+orden=rownames(X)[1]
+
+cors=cor(t(X),method = 'kendall')
+
+while(ncol(cors)>length(orden)){
+  fila=which(rownames(cors)==tail(orden,1))
+  out=!colnames(cors)%in%orden
+  cors_1=cors[fila,out]
+  most_cor=which.max(cors_1)
+  if(length(cors_1)>2){
+    orden=c(orden,names(cors_1)[most_cor])
+  }else{
+    orden=c(orden,names(cors_1)[most_cor],names(cors_1)[-most_cor])
+  }
+}
+
+
+
+MA=data.frame(MA)
+colnames(MA)=rownames(X)
+tit=paste('Matriz de consistencia con k=',k)
+plotly::ggplotly(MA%>%
+  mutate(x=colnames(MA))%>%
+  gather(y,n,-x)%>%
+  mutate(x=factor(x,levels = orden),y=factor(y,levels = orden))%>%
+  filter(n>=2)%>%
+  ggplot(aes(x,y,fill=n))+
+    geom_tile()+
+  theme(axis.text.x = element_blank())+
+    labs(title = tit,
+         subtitle = 'Solo mostramos datos de parejas que estuvieron en el mismo grupo en al menos 2 de los 3 algoritmos')
+  )
+  
+```
+
+
+
+## K=5
+
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+grupo=data.frame()
+## Kmeans
+k=5
+kmo=kmeans(X,k)
+grupo=data.frame(kmeans=kmo$cluster)
+
+## c means
+
+cmo=cmeans(X, k)
+grupo=grupo%>%
+  mutate(cmeans=cmo$cluster)
+
+
+##Spectral
+
+
+
+ssp=kernlab::specc(X, k)
+grupo=grupo%>%
+  mutate(spectral=ssp@.Data)
+
+
+MA=diag(nrow(grupo))*0
+for (g in 1:ncol(grupo)){
+  for (i in 1:nrow(MA)){
+    cuales=grupo[,g]==grupo[i,g]
+    MA[i,cuales]=MA[i,cuales]+1
+  }
+}
+
+orden=rownames(X)[1]
+
+cors=cor(t(X),method = 'kendall')
+
+while(ncol(cors)>length(orden)){
+  fila=which(rownames(cors)==tail(orden,1))
+  out=!colnames(cors)%in%orden
+  cors_1=cors[fila,out]
+  most_cor=which.max(cors_1)
+  if(length(cors_1)>2){
+    orden=c(orden,names(cors_1)[most_cor])
+  }else{
+    orden=c(orden,names(cors_1)[most_cor],names(cors_1)[-most_cor])
+  }
+}
+
+
+
+MA=data.frame(MA)
+colnames(MA)=rownames(X)
+tit=paste('Matriz de consistencia con k=',k)
+plotly::ggplotly(MA%>%
+  mutate(x=colnames(MA))%>%
+  gather(y,n,-x)%>%
+  mutate(x=factor(x,levels = orden),y=factor(y,levels = orden))%>%
+  filter(n>=2)%>%
+  ggplot(aes(x,y,fill=n))+
+    geom_tile()+
+  theme(axis.text.x = element_blank())+
+    labs(title = tit,
+         subtitle = 'Solo mostramos datos de parejas que estuvieron en el mismo grupo en al menos 2 de los 3 algoritmos')
+  )
+  
+```
+
+
+## K=7
+
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+grupo=data.frame()
+## Kmeans
+k=7
+kmo=kmeans(X,k)
+grupo=data.frame(kmeans=kmo$cluster)
+
+## c means
+
+cmo=cmeans(X, k)
+grupo=grupo%>%
+  mutate(cmeans=cmo$cluster)
+
+
+##Spectral
+
+
+
+ssp=kernlab::specc(X, k)
+grupo=grupo%>%
+  mutate(spectral=ssp@.Data)
+
+
+MA=diag(nrow(grupo))*0
+for (g in 1:ncol(grupo)){
+  for (i in 1:nrow(MA)){
+    cuales=grupo[,g]==grupo[i,g]
+    MA[i,cuales]=MA[i,cuales]+1
+  }
+}
+
+orden=rownames(X)[1]
+
+cors=cor(t(X),method = 'kendall')
+
+while(ncol(cors)>length(orden)){
+  fila=which(rownames(cors)==tail(orden,1))
+  out=!colnames(cors)%in%orden
+  cors_1=cors[fila,out]
+  most_cor=which.max(cors_1)
+  if(length(cors_1)>2){
+    orden=c(orden,names(cors_1)[most_cor])
+  }else{
+    orden=c(orden,names(cors_1)[most_cor],names(cors_1)[-most_cor])
+  }
+}
+
+
+
+MA=data.frame(MA)
+colnames(MA)=rownames(X)
+tit=paste('Matriz de consistencia con k=',k)
+plotly::ggplotly(MA%>%
+  mutate(x=colnames(MA))%>%
+  gather(y,n,-x)%>%
+  mutate(x=factor(x,levels = orden),y=factor(y,levels = orden))%>%
+  filter(n>=2)%>%
+  ggplot(aes(x,y,fill=n))+
+    geom_tile()+
+  theme(axis.text.x = element_blank())+
+    labs(title = tit,
+         subtitle = 'Solo mostramos datos de parejas que estuvieron en el mismo grupo en al menos 2 de los 3 algoritmos')
+  )
+  
+```
+

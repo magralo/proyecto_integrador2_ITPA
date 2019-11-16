@@ -1,0 +1,26 @@
+{
+    "collab_server" : "",
+    "contents" : "",
+    "created" : 1573837688987.000,
+    "dirty" : false,
+    "encoding" : "UTF-8",
+    "folds" : "",
+    "hash" : "0",
+    "id" : "69552EA8",
+    "lastKnownWriteTime" : 1573873002,
+    "last_content_update" : 1573873002471,
+    "path" : "~/Desktop/Semestre 2/proyectoIntegrador2/Demo/Demo.R",
+    "project_path" : "Demo.R",
+    "properties" : {
+        "cursorPosition" : "205,35",
+        "scrollLine" : "194",
+        "tempName" : "Untitled1"
+    },
+    "read_only" : false,
+    "read_only_alternatives" : [
+    ],
+    "relative_order" : 4,
+    "source_on_save" : false,
+    "source_window" : "",
+    "type" : "r_source"
+}

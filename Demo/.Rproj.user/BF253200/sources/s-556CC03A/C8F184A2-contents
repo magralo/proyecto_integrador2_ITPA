@@ -1,0 +1,183 @@
+---
+title: "Aprendizaje de maquina, trabajo 2"
+author: "Mateo Graciano"
+date: "5/10/2019"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+## Pre-process
+library(tidyverse)
+library(TTR)
+library(janitor)
+library(plotly)
+library(caret)
+library(lubridate)
+library(Rtsne)
+library(pROC)
+
+source('../fun_notebook_af.r')
+
+raw=read.csv('all_info.csv',stringsAsFactors = FALSE)%>%
+  clean_names()%>%
+  mutate(date=as.Date(date))%>%
+  rename(tri=tot_return_index_net_dvds)
+
+
+
+```
+
+
+
+## Visualización de los datos
+
+```{r indextt, echo=FALSE, warning=TRUE}
+etfs=c(
+  'INDA US Equity', #India
+  'THD US Equity', #Tailandia
+  'EWM US Equity'# Malasya
+)
+
+ggplotly(raw%>%
+  filter(etf%in%etfs,year(date)>2011)%>%
+  ggplot(aes(date,tri,color=etf))+
+  geom_line()+
+  ggtitle('Indice de retorno total original')+
+  ylab('Precio + Dividendos')+
+  facet_wrap(~etf,scales = 'free',ncol=1))
+
+
+k=5
+
+all_pairs=data.frame(combn(unique(etfs),2),stringsAsFactors = FALSE)
+
+all_pairs=lapply(all_pairs, c)
+
+all_tecs=lapply(all_pairs,get_tec,raw=raw,k=k)
+
+pair_tecnical=do.call(rbind,all_tecs)
+
+ggplotly(pair_tecnical%>%
+  filter(year(date)>2011)%>%
+  ggplot(aes(date,pair_index,color=pair))+
+  geom_line()+
+  ggtitle('Indice de retorno total pareja')+
+  ylab('Precio + Dividendos ficticios')+
+  facet_wrap(~pair,scales = 'free',ncol=1))
+
+
+```
+
+
+Ahora veamos la relación que tienen los diferentes indicadores tecnicos sobre el label de entrenamiento.
+
+
+```{r visual1, echo=FALSE, warning=TRUE}
+
+pair_tecnical%>%
+  filter(year(date)>2011)%>%
+  dplyr::select(date,label,sma14,sma50,sma200,c14vs50,c50vs200,c14vs200,ema,momentum,macd,cci,vhf,rsi)%>%
+  ggplot(aes(sma14,sma50,color=label))+geom_point()
+
+
+pair_tecnical%>%
+  filter(year(date)>2011)%>%
+  dplyr::select(date,label,sma14,sma50,sma200,c14vs50,c50vs200,c14vs200,ema,momentum,macd,cci,vhf,rsi)%>%
+  ggplot(aes(macd,cci,color=label))+geom_point()
+
+
+pair_tecnical%>%
+  filter(year(date)>2011)%>%
+  dplyr::select(date,label,sma14,sma50,sma200,c14vs50,c50vs200,c14vs200,ema,momentum,macd,cci,vhf,rsi)%>%
+  ggplot(aes(macd,rsi,color=label))+geom_point()
+
+
+```
+
+Aunque lo que vemos son solo un par de ejemplos podemos aventurarnos a decir un par de cosas. Lo primero es  que aparentemente no existen relaciones, al menos lineales y la segunda es que hay varias variables que tienen bastante colinealidad lo cual podria representar un problema para algunos algoritmos.
+
+
+  
+## Entrenar el modelo con los datos en altas dimensiones (espacio original)
+
+
+### GLM
+```{r glm}
+met='regLogistic'
+years=as.list(2015:2019)
+if(file.exists("glm_stat.rds")){
+  strategy_and_model=readRDS("glm_stat.rds")
+}else{
+strategy_and_model=lapply(years,
+                get_year_model_and_pred,
+                pair_tecnical=pair_tecnical,
+                yot=5,
+                met=met)
+  saveRDS(strategy_and_model, "glm_stat.rds")
+}
+
+plots=show_results(strategy_and_model)
+plots$gtime
+plots$gbar
+plots$con1
+plots$con2
+#plots$groc
+plots$ktable
+
+```
+
+
+### Bosque
+
+
+```{r rf, echo=FALSE, message=FALSE, warning=FALSE}
+met='rf'
+years=as.list(2015:2019)
+
+if(file.exists("rf_stat.rds")){
+  strategy_and_model=readRDS("rf_stat.rds")
+}else{
+strategy_and_model=lapply(years,
+                get_year_model_and_pred,
+                pair_tecnical=pair_tecnical,
+                yot=5,
+                met=met)
+  saveRDS(strategy_and_model, "rf_stat.rds")
+}
+plots=show_results(strategy_and_model)
+
+plots$gtime
+plots$gbar
+plots$con1
+plots$con2
+#plots$groc
+plots$ktable
+
+```
+
+### SVM
+
+```{r svm, echo=FALSE, message=FALSE, warning=FALSE}
+met='svmRadial'
+years=as.list(2015:2019)
+if(file.exists("svm_stat.rds")){
+  strategy_and_model=readRDS("svm_stat.rds")
+}else{
+  strategy_and_model=lapply(years,
+                  get_year_model_and_pred,
+                  pair_tecnical=pair_tecnical,
+                  yot=5,
+                  met=met)
+  saveRDS(strategy_and_model, "svm_stat.rds")
+}
+plots=show_results(strategy_and_model)
+
+plots$gtime
+plots$gbar
+plots$con1
+plots$con2
+#plots$groc
+plots$ktable
+
+```
