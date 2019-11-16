@@ -21,6 +21,7 @@ for(i in 1:num.secs){
   mini=a[[i]]
   
   if(nrow(mini)>0){
+    mini$etf=Names[i]
     df=rbind(df,mini)
   }else{
     problemas=c(problemas,Names[i])
