@@ -223,16 +223,16 @@ raw=read.csv('all_info.csv',stringsAsFactors = FALSE)%>%
 
 
 
-wilcon=get_bt(raw,etfs,20,p_val=0.3,game)%>%
+wilcon=get_bt(raw,etfs,20,p_val=0.05,game)%>%
   select(date,stat,ew)%>%
   rename(Wilcox=stat)
 
 
-mediana=get_bt(raw,etfs,20,p_val=0.3,game2)%>%
+mediana=get_bt(raw,etfs,20,p_val=0.05,game2)%>%
   select(date,stat,ew)%>%
   rename(Mediana=stat)
 
-media=get_bt(raw,etfs,20,p_val=0.3,game3)%>%
+media=get_bt(raw,etfs,20,p_val=0.05,game3)%>%
   select(date,stat)%>%
   rename(Media=stat)
 
@@ -244,16 +244,39 @@ gather(wilcon,strategy,index,-date)%>%
   layout(title="Backtest de la estrategia")
 
 
-wilconR=get_bt(raw,etfs,20,p_val=0.3,game)%>%
+gather(wilcon,strategy,index,-date)%>%
+  rbind(gather(mediana,strategy,index,-date))%>%
+  rbind(gather(media,strategy,index,-date))%>%
+  rename(Estrategia=strategy)%>%
+  ggplot(aes(date,index,color=Estrategia))+
+  geom_line()+
+  ylab('Indice')+
+  xlab('Fecha')+
+  ggthemes::theme_hc()
+
+
+gather(wilcon,strategy,index,-date)%>%
+  rbind(gather(mediana,strategy,index,-date))%>%
+  rbind(gather(media,strategy,index,-date))%>%
+  rename(Estrategia=strategy)%>%
+  filter(Estrategia%in%c('Wilcox','ew'))%>%
+  ggplot(aes(date,index,color=Estrategia))+
+  geom_line()+
+  ylab('Indice')+
+  xlab('Fecha')+
+  ggthemes::theme_hc()
+
+
+wilconR=get_bt(raw,etfs,20,p_val=0.05,game)%>%
   select(date,ret_stat,ret_ew)%>%
   rename(Wilcox=ret_stat)
 
 
-medianaR=get_bt(raw,etfs,20,p_val=0.3,game2)%>%
+medianaR=get_bt(raw,etfs,20,p_val=0.05,game2)%>%
   select(date,ret_stat)%>%
   rename(Mediana=ret_stat)
 
-mediaR=get_bt(raw,etfs,20,p_val=0.3,game3)%>%
+mediaR=get_bt(raw,etfs,20,p_val=0.05,game3)%>%
   select(date,ret_stat)%>%
   rename(Media=ret_stat)
 
@@ -272,11 +295,104 @@ all%>%
   inner_join(bm,by='date')%>%
   mutate(alpha=index-bmi)%>%
   filter(!is.na(alpha))%>%
-  group_by(strategy)%>%
+  mutate(Estrategia=strategy)%>%
+  group_by(Estrategia)%>%
   summarise(alpha_mean=mean(alpha),
             alpha_median=median(alpha),
             IR=alpha_mean/sd(alpha))%>%
-  ggplot(aes(strategy,IR,fill=strategy))+geom_col()
+  ggplot(aes(Estrategia,IR,fill=Estrategia))+
+  geom_col()+
+  ylab('Information Ratio')+
+  ggthemes::theme_hc()
+
+
+
+##### GRID
+df=data.frame()
+
+horiz=as.list(seq(10,60,10))
+
+p<-0.05
+resultados=lapply(horiz,get_bt,raw=raw,etfs=etfs,p_val=p,game=game)
+
+
+for (i in 1:length(horiz)){
+  df=resultados[[i]]%>%
+    select(date,ret_stat)%>%
+    mutate(h=horiz[[i]],pv=p)%>%
+    rbind(df)
+}
+
+p<-0.1
+resultados=lapply(horiz,get_bt,raw=raw,etfs=etfs,p_val=p,game=game)
+
+
+for (i in 1:length(horiz)){
+  df=resultados[[i]]%>%
+    select(date,ret_stat)%>%
+    mutate(h=horiz[[i]],pv=p)%>%
+    rbind(df)
+}
+
+p<-0.2
+resultados=lapply(horiz,get_bt,raw=raw,etfs=etfs,p_val=p,game=game)
+
+
+for (i in 1:length(horiz)){
+  df=resultados[[i]]%>%
+    select(date,ret_stat)%>%
+    mutate(h=horiz[[i]],pv=p)%>%
+    rbind(df)
+}
+
+p<-0.3
+resultados=lapply(horiz,get_bt,raw=raw,etfs=etfs,p_val=p,game=game)
+
+
+for (i in 1:length(horiz)){
+  df=resultados[[i]]%>%
+    select(date,ret_stat)%>%
+    mutate(h=horiz[[i]],pv=p)%>%
+    rbind(df)
+}
+
+
+bm=resultados[[1]]%>%
+  select(date,ret_ew)
+
+df_bm=df%>%
+  inner_join(bm,by='date')
+
+alpha_ir=df_bm%>%
+  mutate(alpha=ret_stat-ret_ew)%>%
+  filter(!is.na(alpha))%>%
+  group_by(h,pv)%>%
+  summarise(alpha_mean=mean(alpha),
+            alpha_median=median(alpha),
+            IR=alpha_mean/sd(alpha))
+
+
+alpha_ir%>%
+  mutate(Horizonte=factor(h))%>%
+  ggplot(aes(h,IR,fill=Horizonte))+
+  geom_col()+
+  facet_wrap(~pv)+
+  ylab('Information Ratio')+
+  xlab('Horizonte')+
+  ggthemes::theme_hc()
+
+alpha_ir%>%
+  mutate(Horizonte=factor(h),
+         alpha_mean=(1+alpha_mean)^52-1)%>%
+  ggplot(aes(Horizonte,alpha_mean,fill=Horizonte))+
+  geom_col()+
+  facet_wrap(~pv)+
+  scale_y_continuous(labels = scales::percent_format(accuracy = 1))+
+  ylab('Alpha')+
+  xlab('Horizonte')+
+  ggthemes::theme_hc()
+
+
 
 
 
